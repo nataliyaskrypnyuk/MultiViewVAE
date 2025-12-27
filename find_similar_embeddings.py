@@ -6,15 +6,15 @@ import torch.optim as optim
 from torchvision import transforms
 from torch.utils.data import DataLoader
 
-from image_dataset import CaseImageDataset
-from visualize import visualize_samples_singleview, visualize_tsne_singleview, visualize_interpolation_singleview
-from singleview_model import vae_loss, ConvVAE
+from image_dataset import CaseMultiViewDataset
+from visualize import visualize_samples_multiview, visualize_tsne_multiview
+from multiview_model import vae_loss, ConvVAE
 
 DATASET_FOLDER = "C:\\ITU"
-MLFLOW_EXPERIMENT_NAME = "VAE_experiment_singleview_test"
+MLFLOW_EXPERIMENT_NAME = "VAE_experiment_multiview_test"
 MLFLOW_RUN_NAME = "vae_test_run"
-FOLDER_TO_SAVE_FIGURES = ".\\SINGLEVIEW_VAE_FIGURES"
-EPOCHS_NUMBER = 1 # change the number of epochs to run here
+FOLDER_TO_SAVE_FIGURES = ".\\MULTIVIEW_VAE_FIGURES"
+EPOCHS_NUMBER = 10 # change the number of epochs to run here
 
 transform = transforms.ToTensor()
 transform = transforms.Compose([
@@ -22,7 +22,7 @@ transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-dataset = CaseImageDataset(root_dir=DATASET_FOLDER, transform=transform)
+dataset = CaseMultiViewDataset(root_dir=DATASET_FOLDER, transform=transform)
 dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
 
 # Initialize model and optimizer
@@ -40,9 +40,9 @@ with mlflow.start_run(run_name=MLFLOW_RUN_NAME):
         train_loss = 0
         train_rec = 0
         train_kld = 0
-        beta = 6 # if epoch < 50 else round((epoch - 50) / 2) # change beta here
+        beta = epoch + 1 # change your beta schedule here
         for batch_idx, (data, _) in enumerate(dataloader):
-            data = data.to(device)
+            data = [image.to(device) for image in data]
             optimizer.zero_grad()
             recon_batch, mu, logvar = model(data)
             (rec, kld) = vae_loss(recon_batch, data, mu, logvar)
@@ -67,15 +67,13 @@ caseids = []
 dataloader = DataLoader(dataset, batch_size=16, shuffle=False)
 with torch.no_grad():
     for data, target in dataloader:
-        data = data.to(device)
+        data = [image.to(device) for image in data]
         mu, logvar = model.encode(data)
         embeddings.append(mu.cpu())
         logvars.append(logvar.cpu())
         caseids.extend(list(target))
 embeddings = torch.cat(embeddings)
 
-visualize_samples_singleview(model, FOLDER_TO_SAVE_FIGURES)
+visualize_samples_multiview(model, FOLDER_TO_SAVE_FIGURES)
 
-visualize_interpolation_singleview(model, FOLDER_TO_SAVE_FIGURES)
-
-visualize_tsne_singleview(embeddings, caseids, FOLDER_TO_SAVE_FIGURES)
+visualize_tsne_multiview(embeddings, caseids, FOLDER_TO_SAVE_FIGURES)

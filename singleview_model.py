@@ -64,7 +64,6 @@ class ConvVAE(nn.Module):
 
 # Loss function
 def vae_loss(recon_x, x, mu, logvar):
-    #BCE = F.binary_cross_entropy(recon_x, x[0].unsqueeze(0), reduction='sum')  # Compare to first view or average
     REC = F.mse_loss(recon_x, x, reduction='sum') # Compare to first view or average
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     return (REC, KLD)
