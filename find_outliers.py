@@ -1,79 +1,40 @@
-import mlflow
+import matplotlib.pyplot as plt
 import numpy as np
+import os
 from sklearn.decomposition import PCA
 import torch
 import torch.optim as optim
 from torchvision import transforms
 from torch.utils.data import DataLoader
+from torchvision.utils import save_image
 
 from image_dataset import CaseMultiViewDataset
 from visualize import visualize_samples_multiview, visualize_tsne_multiview
 from multiview_model import vae_loss, ConvVAE
+from image_dataset import CaseImageDataset
 
 DATASET_FOLDER = "C:\\ITU"
-MLFLOW_EXPERIMENT_NAME = "VAE_experiment_multiview_test"
-MLFLOW_RUN_NAME = "vae_test_run"
-FOLDER_TO_SAVE_FIGURES = ".\\MULTIVIEW_VAE_FIGURES"
-EPOCHS_NUMBER = 10 # change the number of epochs to run here
+FOLDER_TO_SAVE_FIGURES = ".\\SINGLEVIEW_VAE_FIGURES"
 
 transform = transforms.ToTensor()
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.ToTensor()
 ])
+dataset = CaseImageDataset(root_dir=DATASET_FOLDER, transform=transform)
 
-dataset = CaseMultiViewDataset(root_dir=DATASET_FOLDER, transform=transform)
-dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+def visualize_outliers_singleview(embeddings, model, folder, device = torch.device("cuda" if torch.cuda.is_available() else "cpu")):
+    embeddings_np = embeddings.numpy()
+    rec_errors = []
+    with torch.no_grad():
+        for i, embedding_np in enumerate(embeddings_np):
+            reconstructed = model.decode(torch.tensor(embedding_np).float().to(device)).cpu().squeeze()
+            rec_errors.append(torch.mean((reconstructed - dataset.__getitem__(i)[0]) ** 2).item())
 
-# Initialize model and optimizer
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = ConvVAE().to(device)
-optimizer = optim.AdamW(model.parameters())
-
-mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
-# Training loop
-with mlflow.start_run(run_name=MLFLOW_RUN_NAME):
-    mlflow.log_param("latent_dim", model.latent_dim)
-    epochs = EPOCHS_NUMBER
-    for epoch in range(epochs):
-        model.train()
-        train_loss = 0
-        train_rec = 0
-        train_kld = 0
-        beta = epoch + 1 # change your beta schedule here
-        for batch_idx, (data, _) in enumerate(dataloader):
-            data = [image.to(device) for image in data]
-            optimizer.zero_grad()
-            recon_batch, mu, logvar = model(data)
-            (rec, kld) = vae_loss(recon_batch, data, mu, logvar)
-            loss = rec + kld * beta
-            loss.backward()
-            train_loss += loss.item()
-            train_rec += rec.item()
-            train_kld += kld.item()
-            optimizer.step()
-        # print(f'Epoch {epoch+1}, Loss: {train_loss / len(dataloader.dataset):.4f}')
-        print(f'Epoch {epoch+1}, KL divergence: {train_kld / len(dataloader.dataset):.4f}')
-        print(f'Epoch {epoch+1}, Reconstruction Loss: {train_rec / len(dataloader.dataset):.4f}')
-        mlflow.log_metric("recon_loss_train", train_rec / len(dataloader.dataset), step=epoch)
-        mlflow.log_metric("kld_loss_train", train_kld / len(dataloader.dataset), step=epoch)
-        mlflow.log_metric("loss_train", train_loss / len(dataloader.dataset), step=epoch)
-        mlflow.log_metric("kld_beta", beta, step=epoch)
-
-model.eval()
-embeddings = []
-logvars = []
-caseids = []
-dataloader = DataLoader(dataset, batch_size=16, shuffle=False)
-with torch.no_grad():
-    for data, target in dataloader:
-        data = [image.to(device) for image in data]
-        mu, logvar = model.encode(data)
-        embeddings.append(mu.cpu())
-        logvars.append(logvar.cpu())
-        caseids.extend(list(target))
-embeddings = torch.cat(embeddings)
-
-visualize_samples_multiview(model, FOLDER_TO_SAVE_FIGURES)
-
-visualize_tsne_multiview(embeddings, caseids, FOLDER_TO_SAVE_FIGURES)
+    outliers_10 = np.array(rec_errors).argsort()[-10:][::-1]
+    
+    save_image(
+        dataset.__getitem__(outliers_10[0])[0], os.path.join(folder, "singleview_outlier.png"),
+        padding=0,
+        format="PNG"
+    )

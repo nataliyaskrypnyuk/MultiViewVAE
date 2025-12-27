@@ -22,58 +22,27 @@ transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-dataset = CaseMultiViewDataset(root_dir=DATASET_FOLDER, transform=transform)
-dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+caseids_brackets = []
+embeddings_brackets_average = np.zeros(embeddings_np.shape[1])
+cases_with_brackets = ['20250724182936647-342e25b8-677a-46e9-82ce-8503251c3085/lower/lower_occlusal_256.png',
+                       '20250724182936647-342e25b8-677a-46e9-82ce-8503251c3085/upper/upper_occlusal_256.png',
+                       '20250724175749275-91645211-bb5e-481e-845a-8c2cadf3963f/lower/lower_occlusal_256.png',
+                       '20250724175749275-91645211-bb5e-481e-845a-8c2cadf3963f/upper/upper_occlusal_256.png',
+                       '20250724173642746-000fd235-9fea-4b83-b944-591015d5070b/lower/lower_occlusal_256.png',
+                       '20250724173642746-000fd235-9fea-4b83-b944-591015d5070b/upper/upper_occlusal_256.png',
+                       '20250724171159628-b8bfd8f7-d075-4883-8487-0f693ca5c0f6/lower/lower_occlusal_256.png',
+                       '20250724171159628-b8bfd8f7-d075-4883-8487-0f693ca5c0f6/upper/upper_occlusal_256.png',
+                       '20250724151839487-33993608-bd18-4276-a4c5-1417545ae7b2/lower/lower_occlusal_256.png',
+                       '20250724151839487-33993608-bd18-4276-a4c5-1417545ae7b2/upper/upper_occlusal_256.png',
+                      ]
+for case in cases_with_brackets:
+    caseids_brackets.append(caseids.index(case))
+    embeddings_brackets_average += embeddings_np[caseids.index(case)]
+embeddings_brackets_average = embeddings_brackets_average / len(cases_with_brackets)
+embeddings_np = np.append(embeddings_np, [embeddings_brackets_average], axis=0)
 
-# Initialize model and optimizer
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = ConvVAE().to(device)
-optimizer = optim.AdamW(model.parameters())
+import faiss
+index = faiss.IndexFlatL2(embeddings_np.shape[1])
+index.add(embeddings_np)
+D, I = index.search(embeddings_np, k=10)
 
-mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
-# Training loop
-with mlflow.start_run(run_name=MLFLOW_RUN_NAME):
-    mlflow.log_param("latent_dim", model.latent_dim)
-    epochs = EPOCHS_NUMBER
-    for epoch in range(epochs):
-        model.train()
-        train_loss = 0
-        train_rec = 0
-        train_kld = 0
-        beta = epoch + 1 # change your beta schedule here
-        for batch_idx, (data, _) in enumerate(dataloader):
-            data = [image.to(device) for image in data]
-            optimizer.zero_grad()
-            recon_batch, mu, logvar = model(data)
-            (rec, kld) = vae_loss(recon_batch, data, mu, logvar)
-            loss = rec + kld * beta
-            loss.backward()
-            train_loss += loss.item()
-            train_rec += rec.item()
-            train_kld += kld.item()
-            optimizer.step()
-        # print(f'Epoch {epoch+1}, Loss: {train_loss / len(dataloader.dataset):.4f}')
-        print(f'Epoch {epoch+1}, KL divergence: {train_kld / len(dataloader.dataset):.4f}')
-        print(f'Epoch {epoch+1}, Reconstruction Loss: {train_rec / len(dataloader.dataset):.4f}')
-        mlflow.log_metric("recon_loss_train", train_rec / len(dataloader.dataset), step=epoch)
-        mlflow.log_metric("kld_loss_train", train_kld / len(dataloader.dataset), step=epoch)
-        mlflow.log_metric("loss_train", train_loss / len(dataloader.dataset), step=epoch)
-        mlflow.log_metric("kld_beta", beta, step=epoch)
-
-model.eval()
-embeddings = []
-logvars = []
-caseids = []
-dataloader = DataLoader(dataset, batch_size=16, shuffle=False)
-with torch.no_grad():
-    for data, target in dataloader:
-        data = [image.to(device) for image in data]
-        mu, logvar = model.encode(data)
-        embeddings.append(mu.cpu())
-        logvars.append(logvar.cpu())
-        caseids.extend(list(target))
-embeddings = torch.cat(embeddings)
-
-visualize_samples_multiview(model, FOLDER_TO_SAVE_FIGURES)
-
-visualize_tsne_multiview(embeddings, caseids, FOLDER_TO_SAVE_FIGURES)
