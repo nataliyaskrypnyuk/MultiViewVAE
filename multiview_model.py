@@ -1,3 +1,7 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 class ConvVAE(nn.Module):
     def __init__(self, input_channels=3, latent_dim=256, input_size=(256, 256)):
         super(ConvVAE, self).__init__()
