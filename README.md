@@ -13,5 +13,5 @@ To train a multi-view VAE, run: python train_multiviw_vae.py
 
 To view the experiments' loss, run "mlflow ui" and open "http://127.0.0.1:5000/"
 
-ToDo: add environment, update find_outliers.py, update find_similar_embeddings.py
+ToDo: add environment, add different schedules for beta
 

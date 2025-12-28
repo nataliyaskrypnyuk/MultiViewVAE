@@ -82,7 +82,6 @@ def visualize_tsne_singleview(embeddings, caseids, folder):
     # Plot
     plt.clf()
     plt.scatter(latent_2d[:, 0], latent_2d[:, 1], c=colors, cmap='viridis')
-    plt.colorbar()
     plt.title("VAE Latent Space Visualization with t-SNE, yellow is " + unique_labels[1])
     plt.savefig(os.path.join(folder, "singleview_vae_tsne.png"))
 
@@ -96,8 +95,9 @@ def visualize_tsne_singleview(embeddings, caseids, folder):
     latent_2d = tsne.fit_transform(embeddings_np[:3540])
 
     # Plot
+    plt.clf()
     plt.scatter(latent_2d[:, 0], latent_2d[:, 1], c=colors, cmap='viridis')
-    plt.colorbar()
+    plt.title("VAE Latent Space Visualization with t-SNE, yellow is " + unique_labels[1] + ", green is " + unique_labels[2])
     plt.savefig(os.path.join(folder, "singleview_vae_tsne2.png"))
 
 
@@ -116,6 +116,5 @@ def visualize_tsne_multiview(embeddings, caseids, folder):
     # Plot
     plt.clf()
     plt.scatter(latent_2d[:, 0], latent_2d[:, 1], c=colors, cmap='viridis')
-    plt.colorbar()
     plt.title("VAE Latent Space Visualization with t-SNE, yellow is " + unique_labels[1])
     plt.savefig(os.path.join(folder, "multiview_vae_tsne.png"))

@@ -1,16 +1,8 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import os
-from sklearn.decomposition import PCA
 import torch
-import torch.optim as optim
 from torchvision import transforms
-from torch.utils.data import DataLoader
 from torchvision.utils import save_image
-
-from image_dataset import CaseMultiViewDataset
-from visualize import visualize_samples_multiview, visualize_tsne_multiview
-from multiview_model import vae_loss, ConvVAE
 from image_dataset import CaseImageDataset
 
 DATASET_FOLDER = "C:\\ITU"
@@ -24,6 +16,7 @@ transform = transforms.Compose([
 dataset = CaseImageDataset(root_dir=DATASET_FOLDER, transform=transform)
 
 def visualize_outliers_singleview(embeddings, model, folder, device = torch.device("cuda" if torch.cuda.is_available() else "cpu")):
+    os.makedirs(folder, exist_ok=True)
     embeddings_np = embeddings.numpy()
     rec_errors = []
     with torch.no_grad():
@@ -33,8 +26,17 @@ def visualize_outliers_singleview(embeddings, model, folder, device = torch.devi
 
     outliers_10 = np.array(rec_errors).argsort()[-10:][::-1]
     
+    outlier_pictures = []
+    for outlier in outliers_10:
+        picture = dataset.__getitem__(outlier)[0]
+        outlier_pictures.append(picture)
+    batch = torch.stack(outlier_pictures, dim=0)
+    # 2 pictures per row
     save_image(
-        dataset.__getitem__(outliers_10[0])[0], os.path.join(folder, "singleview_outlier.png"),
-        padding=0,
-        format="PNG"
+        batch, os.path.join(folder, "singleview_outliers.png"),
+        nrow=2,
+        padding=10,
+        normalize=False,
+        value_range=(0, 1),
+        pad_value = 1
     )

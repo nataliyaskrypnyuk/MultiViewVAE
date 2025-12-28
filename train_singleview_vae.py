@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from image_dataset import CaseImageDataset
 from visualize import visualize_samples_singleview, visualize_tsne_singleview, visualize_interpolation_singleview
 from find_outliers import visualize_outliers_singleview
+from find_similar_embeddings import visualize_similar_cases_singleview
 from singleview_model import vae_loss, ConvVAE
 
 DATASET_FOLDER = "C:\\ITU"
@@ -82,3 +83,5 @@ visualize_interpolation_singleview(model, FOLDER_TO_SAVE_FIGURES)
 visualize_tsne_singleview(embeddings, caseids, FOLDER_TO_SAVE_FIGURES)
 
 visualize_outliers_singleview(embeddings, model, FOLDER_TO_SAVE_FIGURES)
+
+visualize_similar_cases_singleview(embeddings, caseids, FOLDER_TO_SAVE_FIGURES)
